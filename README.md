@@ -3,6 +3,6 @@
 ## Overview
 
 This program is a
-[GhostText](https://github.com/GhostText/GhostTex) plugin for [Acme
+[GhostText](https://github.com/GhostText/GhostText) plugin for [Acme
 text editor](https://en.wikipedia.org/wiki/Acme_(text_editor)). See
 [Godoc](https://godoc.org/github.com/fhs/Ghost) for documentation.
