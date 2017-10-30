@@ -1,12 +1,12 @@
 /*
 This program is a GhostText plugin for Acme text editor.
 
-GhostText (https://github.com/GhostText/GhostTex) is a Chrome extension
+GhostText (https://github.com/GhostText/GhostTex) is a browser extension
 that allows you to edit text in web pages (e.g. in <textarea>) in various
 text editors. It interacts with the text editor via a websocket server,
 such as this program.
 
-By default, this program will listen on port 4001 (GhostText default
+By default, this program will listen on localhost port 4001 (GhostText default
 port). This can be changed with the -port flag. When this program receives
 a new edit request from GhostText, it'll open a new acme window. Middle
 clicking on "Put" sends text from acme to the web page. After editing
@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"strings"
 
 	"9fans.net/go/acme"
 	"github.com/gorilla/websocket"
@@ -31,24 +30,20 @@ var port = flag.Int("port", 4001, "websocket listen port")
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
-	CheckOrigin: func(r *http.Request) bool {
-		return strings.HasPrefix(r.Header.Get("Origin"), "chrome-extension://")
-	},
+	CheckOrigin:     func(r *http.Request) bool { return true },
 }
 
 type Selection struct {
-	Start, End int
+	Start int `json:"start"`
+	End   int `json:"end"`
 }
 
 type WebText struct {
-	Text       string
-	Selections []Selection
-	Title      string
-	URL        string
-}
-
-type AcmeText struct {
-	Text string `json:"text"`
+	Selections []Selection `json:"selections"`
+	Syntax     string      `json:"syntax"`
+	Title      string      `json:"title"`
+	Text       string      `json:"text"`
+	URL        string      `json:"url"`
 }
 
 func handleWinEvents(w *acme.Win, conn *websocket.Conn) {
@@ -60,7 +55,14 @@ func handleWinEvents(w *acme.Win, conn *websocket.Conn) {
 				if err != nil {
 					log.Printf("failed to read body: %v\n", err)
 				}
-				if err := conn.WriteJSON(&AcmeText{Text: string(body)}); err != nil {
+				w.Ctl("addr=dot")
+				q0, q1, _ := w.ReadAddr()
+				web := &WebText{
+					Selections: []Selection{{q0, q1}},
+					Syntax:     "text.plain",
+					Text:       string(body),
+				}
+				if err := conn.WriteJSON(web); err != nil {
 					log.Printf("WriteJSON failed: %v\n", err)
 				}
 				w.Ctl("clean")
@@ -104,6 +106,12 @@ func handler(wr http.ResponseWriter, r *http.Request) {
 		w.Addr(",")
 		w.Write("data", []byte(web.Text))
 		w.Ctl("clean")
+
+		if len(web.Selections) > 0 {
+			sel := web.Selections[0]
+			w.Addr("#%v,#%v", sel.Start, sel.End)
+			w.Ctl("dot=addr")
+		}
 	}
 }
 
